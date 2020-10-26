@@ -1,4 +1,6 @@
-FROM debian:wheezy
+FROM debian:8
+
+RUN sed -i "s%http://httpredir.debian.org%http://ftp.us.debian.org%g" /etc/apt/sources.list
 
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
 RUN groupadd -r redis && useradd -r -g redis redis
@@ -16,18 +18,18 @@ RUN curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/dow
     && chmod +x /usr/local/bin/gosu
 
 ENV REDIS_VERSION 2.4.18
-ENV REDIS_DOWNLOAD_URL https://github.com/antirez/redis/archive/2.4.18.zip
+ENV REDIS_DOWNLOAD_URL https://github.com/antirez/redis/archive/${REDIS_VERSION}.zip
 
 RUN buildDeps='gcc libc6-dev make unzip'; \
     set -x \
-    && apt-get update && apt-get install -y $buildDeps --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* && apt-get clean && apt-get update && apt-get install -y $buildDeps --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /usr/src/redis \
     && curl -sSL "$REDIS_DOWNLOAD_URL" -o redis.zip \
     && unzip redis.zip -d /usr/src/redis \
     && rm redis.zip \
-    && make -C /usr/src/redis/redis-2.4.18 \
-    && make -C /usr/src/redis/redis-2.4.18 install \
+    && make -C /usr/src/redis/redis-${REDIS_VERSION} \
+    && make -C /usr/src/redis/redis-${REDIS_VERSION} install \
     && rm -r /usr/src/redis \
     && apt-get purge -y --auto-remove $buildDeps
 
@@ -35,7 +37,9 @@ RUN mkdir /data && chown redis:redis /data
 VOLUME /data
 WORKDIR /data
 
+
 COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
 EXPOSE 6379
